@@ -13,6 +13,7 @@ import { createInitialState } from "../src/state.js";
 import { assignRefs, BLOCKED_REF } from "../src/refs.js";
 import { defaultConfig } from "../src/config.js";
 import type { Config, CoreMessage } from "../src/types.js";
+import { isMessageProtected, collectProtectedToolCallIds } from "../src/protected.js";
 
 const CATALOG_MARKER = "\x3cavailable_skills\x3e";
 
@@ -221,4 +222,54 @@ test("isMessageProtected: range consisting solely of protected messages fails wi
     /no compressible messages/,
     "an entirely-protected range must fail loudly, not fake-compress",
   );
+});
+
+
+test("acp_cache tool-call is always protected", () => {
+  const config = cfg();
+  const call: CoreMessage = {
+    id: "cache-call",
+    role: "assistant",
+    contentType: "tool-call",
+    toolName: "acp_cache",
+    toolCallId: "cache-1",
+    text: "{}",
+  };
+  assert.equal(isMessageProtected(call, config), true);
+});
+
+test("acp_cache call remains protected when its tool-result is distant", () => {
+  const config = cfg();
+  const messages: CoreMessage[] = [
+    {
+      id: "cache-call",
+      role: "assistant",
+      contentType: "tool-call",
+      toolName: "acp_cache",
+      toolCallId: "cache-1",
+      text: "{}",
+    },
+    ...Array.from({ length: 25 }, (_, i) => msg(`middle-${i}`, "ordinary message")),
+    {
+      id: "cache-result",
+      role: "user",
+      contentType: "tool-result",
+      toolCallId: "cache-1",
+      text: "cached",
+    },
+  ];
+  assert.deepEqual([...collectProtectedToolCallIds(messages, config)], ["cache-1"]);
+});
+
+test("configured protectedTools still protects custom tools", () => {
+  const config = cfg({ protectedTools: ["custom_tool"] });
+  const call: CoreMessage = {
+    id: "custom-call",
+    role: "assistant",
+    contentType: "tool-call",
+    toolName: "custom_tool",
+    toolCallId: "custom-1",
+    text: "{}",
+  };
+  assert.equal(isMessageProtected(call, config), true);
 });
