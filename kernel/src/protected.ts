@@ -1,4 +1,5 @@
 import type { Config, CoreMessage } from "./types.js";
+import { ACP_TOOL_NAMES } from "./compress-tools.js";
 
 /** Tools that are ALWAYS protected, regardless of user config. These are ACP's
  *  own metadata tools whose records must remain in context: compress calls
@@ -13,7 +14,7 @@ import type { Config, CoreMessage } from "./types.js";
  *  consults it. Hosts render such results with a failed-compress receipt
  *  prefix; see isFailedCompressResult. Those exchanges fold like ordinary
  *  messages so a failing compress loop cannot permanently bloat context. */
-export const ALWAYS_PROTECTED_TOOLS = ["compress", "acp_rule"] as const;
+export const ALWAYS_PROTECTED_TOOLS = [...ACP_TOOL_NAMES, "acp_rule"] as const;
 
 /** #4289: hosts render a compress tool-result that applied zero ranges with
  *  one of these prefixes. "[Compression FAILED: …]" covers the refused /
