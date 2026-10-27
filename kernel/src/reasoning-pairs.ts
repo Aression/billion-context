@@ -52,7 +52,18 @@ export function adjustBoundariesForReasoningPairs(
       ) {
         j++;
       }
-      const companion = messages[j + 1];
+      // Prior compression may insert block summaries between the reasoning
+      // run and its assistant companion. Treat these summaries as transparent.
+      let companionIndex = j + 1;
+      while (
+        companionIndex < messages.length &&
+        messages[companionIndex]!.role === "system" &&
+        typeof messages[companionIndex]!.id === "string" &&
+        messages[companionIndex]!.id.startsWith("acp_summary_")
+      ) {
+        companionIndex++;
+      }
+      const companion = messages[companionIndex];
       if (
         companion !== undefined &&
         companion.role === "assistant" &&
@@ -63,7 +74,7 @@ export function adjustBoundariesForReasoningPairs(
         // the first companion (#684): a turn may carry several tool-calls, and
         // pulling one leaves its siblings outside the range. The composed
         // fixpoint's tool-pair pass then widens for every result.
-        let e = j + 1;
+        let e = companionIndex;
         while (
           e + 1 < messages.length &&
           messages[e + 1]!.role === "assistant" &&
@@ -83,10 +94,25 @@ export function adjustBoundariesForReasoningPairs(
       // Backward: pull the reasoning run immediately preceding this assistant
       // message into the range.
       let k = i - 1;
-      while (k >= 0 && messages[k]!.contentType === "reasoning") {
-        k--;
+      let runStart = i;
+      while (k >= 0) {
+        if (messages[k]!.contentType === "reasoning") {
+          runStart = k;
+          k--;
+          continue;
+        }
+        // Block summaries inserted by an earlier compression do not break
+        // the logical adjacency between reasoning and its companion.
+        if (
+          messages[k]!.role === "system" &&
+          typeof messages[k]!.id === "string" &&
+          messages[k]!.id.startsWith("acp_summary_")
+        ) {
+          k--;
+          continue;
+        }
+        break;
       }
-      const runStart = k + 1;
       if (
         runStart < i &&
         runStart >= 0 &&
