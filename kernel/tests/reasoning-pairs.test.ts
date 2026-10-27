@@ -100,6 +100,41 @@ describe("adjustBoundariesForReasoningPairs", () => {
     assert.deepEqual(result, { startIndex: 1, endIndex: 2 });
   });
 
+  it("skips a block summary between reasoning and tool-call in both directions", () => {
+    const messages = [
+      textMsg("a"),
+      reasoning("b"),
+      { id: "acp_summary_block1", role: "system", contentType: "text", text: "summary" } as CoreMessage,
+      toolCall("c", "call1"),
+      textMsg("d"),
+    ];
+    assert.deepEqual(adjustBoundariesForReasoningPairs(1, 1, messages), {
+      startIndex: 1,
+      endIndex: 3,
+    });
+    assert.deepEqual(adjustBoundariesForReasoningPairs(3, 3, messages), {
+      startIndex: 1,
+      endIndex: 3,
+    });
+  });
+
+  it("skips multiple consecutive block summaries between reasoning and companion", () => {
+    const messages = [
+      reasoning("r1"),
+      { id: "acp_summary_block1", role: "system", contentType: "text", text: "summary 1" } as CoreMessage,
+      { id: "acp_summary_block2", role: "system", contentType: "text", text: "summary 2" } as CoreMessage,
+      toolCall("call", "call1"),
+    ];
+    assert.deepEqual(adjustBoundariesForReasoningPairs(0, 0, messages), {
+      startIndex: 0,
+      endIndex: 3,
+    });
+    assert.deepEqual(adjustBoundariesForReasoningPairs(3, 3, messages), {
+      startIndex: 0,
+      endIndex: 3,
+    });
+  });
+
   it("does not extend when reasoning is followed by a non-assistant message (no companion)", () => {
     const messages = [textMsg("a"), reasoning("b"), textMsg("c")];
     const result = adjustBoundariesForReasoningPairs(1, 1, messages);
